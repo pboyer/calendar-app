@@ -7,7 +7,15 @@ import {
   sendSignInLinkToEmail,
   signInWithEmailLink,
 } from "firebase/auth";
-import { addDoc, collection, query, where } from "firebase/firestore";
+import {
+  FieldPath,
+  addDoc,
+  collection,
+  onSnapshot,
+  or,
+  query,
+  where,
+} from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { APP_DESCRIPTION, APP_TITLE } from "./constants";
 import { auth, db } from "./firebase";
@@ -23,28 +31,28 @@ interface Event {
 interface Calendar {
   id: string;
   name: string;
-  events: { [eventId: string]: Event };
-  roles: { [userId: string]: "READ" | "WRITE" | "ADMIN" };
+  events: Event[];
+  roles: { [userId: string]: "VIEW" | "EDIT" | "ADMIN" };
 }
 
 export default function Home() {
-  const [todos, setTodos] = useState<Calendar[]>([]);
-  const [newTodo, setNewTodo] = useState<string>("");
+  const [calendars, setCalendars] = useState<Calendar[]>([]);
+  const [newCalendarName, setNewCalendarName] = useState<string>("");
 
-  // Add item
+  // Add calendar
 
   const addCalendar = async () => {
-    if (!newTodo || !auth.currentUser) {
+    if (!newCalendarName || !auth.currentUser) {
       return;
     }
 
     addDoc(collection(db, "calendars"), {
-      content: newTodo,
-      completed: false,
-      author: auth.currentUser?.uid,
+      name: newCalendarName,
+      events: [],
+      roles: { [auth.currentUser.uid]: "ADMIN" },
     });
 
-    setNewTodo("");
+    setNewCalendarName("");
   };
 
   const [user, setUser] = useState<User | null>(null);
@@ -61,27 +69,28 @@ export default function Home() {
   }, []);
 
   // Read items
+
   useEffect(() => {
-    if (!user) {
+    if (!auth.currentUser) {
       return;
     }
 
     const q = query(
       collection(db, "calendars"),
-      where("author", "==", auth.currentUser?.uid)
+      where(new FieldPath("roles", auth.currentUser.uid), "!=", "")
     );
 
-    // const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    //   const itemsArr: Todo[] = [];
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const itemsArr: Calendar[] = [];
 
-    //   querySnapshot.forEach((doc) => {
-    //     itemsArr.push({ ...doc.data(), id: doc.id } as Todo);
-    //   });
+      querySnapshot.forEach((doc) => {
+        itemsArr.push({ ...doc.data(), id: doc.id } as Calendar);
+      });
 
-    //   setTodos(itemsArr);
-    // });
+      setCalendars(itemsArr);
+    });
 
-    // return unsubscribe;
+    return unsubscribe;
   }, [user]);
 
   return (
@@ -99,7 +108,43 @@ export default function Home() {
               Sign out
             </button>
           </div>
-          <div className="mb-6 mt-8">hi {user.email}</div>
+          <div className="w-full mb-6 mt-8">
+            <form className="grid grid-cols-6">
+              <input
+                className="col-span-5 p-4  text-black bg-slate-100 dark:bg-slate-900 focus:bg-slate-200 focus:dark:bg-slate-950 dark:text-white mr-2 rounded outline-none"
+                type="text"
+                placeholder="New calendar name"
+                value={newCalendarName}
+                onChange={(e) => setNewCalendarName(e.target.value)}
+                onKeyUp={(e) => {
+                  if (e.code === "Enter") {
+                    addCalendar();
+                  }
+                }}
+              ></input>
+              <button
+                className="col-span-1 p-4 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:text-white dark:hover:bg-slate-700 rounded"
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  addCalendar();
+                }}
+              >
+                +
+              </button>
+            </form>
+          </div>
+          <div className="w-full  mb-5">
+            <ul>
+              {calendars.map((calendar) => (
+                <li key={calendar.id}>
+                  <a href={`/calendar/${calendar.id}`}>
+                    {JSON.stringify(calendar)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </>
       ) : (
         userLoaded && <LoginContainer />
@@ -196,9 +241,7 @@ function LoginContainer() {
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-6 bg-white dark:bg-slate-800 text-black dark:text-white">
-      <div className="z-10 w-full max-w-5xl items-center flex justify-center font-mono text-sm">
-        {children}
-      </div>
+      <div className="z-10 w-full max-w-5xl font-mono text-sm">{children}</div>
     </main>
   );
 }
