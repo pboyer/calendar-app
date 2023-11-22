@@ -92,7 +92,7 @@ export default function HomePage() {
       <div className="w-full mb-6 mt-8">
         <form className="grid grid-cols-6">
           <input
-            className="col-span-5 p-4  text-black bg-slate-100 dark:bg-slate-900 focus:bg-slate-200 focus:dark:bg-slate-950 dark:text-white mr-2 rounded outline-none"
+            className="col-span-5 p-4 text-black bg-slate-100 dark:bg-slate-900 focus:bg-slate-200 focus:dark:bg-slate-950 dark:text-white mr-2 rounded outline-none"
             type="text"
             placeholder="New calendar name"
             value={newCalendarName}
@@ -117,24 +117,29 @@ export default function HomePage() {
       </div>
       <div className="w-full">
         {calendars.map((calendar) => (
-          <div
-            key={calendar.id}
-            className="bg-slate-200 p-4 mt-4 dark:bg-slate-600 hover:bg-slate-300 dark:text-white dark:hover:bg-slate-700 rounded flex justify-between"
-          >
-            <Link href={`/calendar?id=${calendar.id}`}>{calendar.name}</Link>
-            Updated at:{" "}
-            {new Date(calendar.updatedAt.seconds * 1000).toLocaleString()}
-            <button
-              className=""
-              type="submit"
-              onClick={(e) => {
-                e.preventDefault();
-                deleteCalendar(calendar.id);
-              }}
-            >
-              x
-            </button>
-          </div>
+          <Link href={`/calendar?id=${calendar.id}`} key={calendar.id}>
+            <div className="bg-slate-200 p-4 mt-4 dark:bg-slate-600 hover:bg-slate-300 dark:text-white dark:hover:bg-slate-700 rounded flex justify-between">
+              <div>{calendar.name}</div>
+              <div>
+                Updated:
+                {new Date(calendar.updatedAt.seconds * 1000).toLocaleString()}
+              </div>
+              <button
+                className=""
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (
+                    confirm("Are you sure you want to delete this calendar?")
+                  ) {
+                    deleteCalendar(calendar.id);
+                  }
+                }}
+              >
+                x
+              </button>
+            </div>
+          </Link>
         ))}
       </div>
     </>

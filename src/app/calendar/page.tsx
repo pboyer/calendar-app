@@ -23,11 +23,34 @@ import { useAuth } from "../useAuth";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+function formatDateForDatetimeLocal(date: Date) {
+  function pad(num: number) {
+    if (num < 10) {
+      return "0" + num;
+    }
+    return num;
+  }
+
+  return (
+    date.getFullYear() +
+    "-" +
+    pad(date.getMonth() + 1) +
+    "-" +
+    pad(date.getDate()) +
+    "T" +
+    pad(date.getHours()) +
+    ":" +
+    pad(date.getMinutes())
+  );
+}
+
 export default function CalendarPage() {
   const [calendarRef, setCalendarRef] =
     useState<DocumentReference<Calendar> | null>(null);
   const [calendar, setCalendar] = useState<Calendar | null>(null);
   const [newEventName, setNewEventName] = useState<string>("");
+  const [newEventStart, setNewEventStart] = useState<Date | null>(new Date());
+  const [newEventEnd, setNewEventEnd] = useState<Date | null>(new Date());
 
   const searchParams = useSearchParams();
 
@@ -36,7 +59,14 @@ export default function CalendarPage() {
   // Add calendar
 
   const addEventToCalendar = async () => {
-    if (!newEventName || !auth.currentUser || !calendarRef || !calendar) {
+    if (
+      !newEventName ||
+      !auth.currentUser ||
+      !calendarRef ||
+      !calendar ||
+      !newEventStart ||
+      !newEventEnd
+    ) {
       return;
     }
 
@@ -44,10 +74,10 @@ export default function CalendarPage() {
       id: Math.random().toString(),
       author: auth.currentUser.uid,
       name: newEventName,
-      updatedAt: Timestamp.fromDate(new Date()),
-      createdAt: Timestamp.fromDate(new Date()),
-      startTime: Timestamp.fromDate(new Date()),
-      endTime: Timestamp.fromDate(new Date()),
+      updatedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+      startTime: Timestamp.fromDate(newEventStart),
+      endTime: Timestamp.fromDate(newEventEnd),
     };
 
     updateDoc(calendarRef, {
@@ -61,8 +91,6 @@ export default function CalendarPage() {
     if (!calendarRef) {
       return;
     }
-
-    console.log("hello!", data);
 
     updateDoc(calendarRef, {
       ...data,
@@ -110,7 +138,7 @@ export default function CalendarPage() {
             <Link href="/">Back to my calendars</Link>
           </div>
         </div>
-        <form className="grid grid-cols-6">
+        <form className="grid grid-cols-12">
           <input
             className="col-span-5 p-4 text-black bg-slate-100 dark:bg-slate-900 focus:bg-slate-200 focus:dark:bg-slate-950 dark:text-white mr-2 rounded outline-none"
             type="text"
@@ -122,6 +150,18 @@ export default function CalendarPage() {
                 addEventToCalendar();
               }
             }}
+          ></input>
+          <input
+            type="datetime-local"
+            defaultValue={formatDateForDatetimeLocal(newEventStart!)}
+            onChange={(e) => setNewEventStart(new Date(e.target.value))}
+            className="col-span-3 p-4 text-black bg-slate-100 dark:bg-slate-900 focus:bg-slate-200 focus:dark:bg-slate-950 dark:text-white mr-2 rounded outline-none"
+          ></input>
+          <input
+            type="datetime-local"
+            defaultValue={formatDateForDatetimeLocal(newEventEnd!)}
+            onChange={(e) => setNewEventEnd(new Date(e.target.value))}
+            className="col-span-3 p-4 text-black bg-slate-100 dark:bg-slate-900 focus:bg-slate-200 focus:dark:bg-slate-950 dark:text-white mr-2 rounded outline-none"
           ></input>
           <button
             className="col-span-1 p-4 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:text-white dark:hover:bg-slate-700 rounded"
@@ -144,26 +184,23 @@ export default function CalendarPage() {
             >
               <Link href={`/calendar?id=${event.id}`}>{event.name}</Link>
               <div>
-                Updated at:{" "}
-                {new Date(event.updatedAt.seconds * 1000).toLocaleString()}
-              </div>
-              <div>
                 Start:
                 {new Date(event.startTime.seconds * 1000).toLocaleString()}
               </div>
               <div>
                 End: {new Date(event.endTime.seconds * 1000).toLocaleString()}
               </div>
+              <div>
+                Updated:
+                {new Date(event.updatedAt.seconds * 1000).toLocaleString()}
+              </div>
               <button
                 onClick={(e) => {
                   e.preventDefault();
-                  console.log(
-                    eventIndex,
-                    calendar.events,
-                    [...calendar.events].splice(eventIndex, 1)
-                  );
+                  const removed = [...calendar.events];
+                  removed.splice(eventIndex, 1);
                   updateCalendar({
-                    events: [...calendar.events].splice(eventIndex, 1),
+                    events: removed,
                   });
                 }}
               >
